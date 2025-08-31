@@ -227,25 +227,18 @@ def get_card_by_lang_and_set():
         all_languages = scryfall_service.get_unique_languages(editions)
         logger.debug(f"All available languages: {[lang['code'] for lang in all_languages]}")
 
-        # Filter editions based on criteria
+        # Filter editions based on criteria - but be more flexible with language filtering
         filtered_editions = []
+        target_edition_found = False
+        
         for edition in editions:
-            include = True
             edition_set = edition.get('set', '').upper()
             edition_lang = edition.get('lang', 'en')
 
             logger.debug(f"Checking edition: {edition_set} (lang: {edition_lang})")
 
-            if set_code and edition_set != set_code.upper():
-                logger.debug(f"Skipping edition {edition_set} - doesn't match requested set {set_code}")
-                include = False
-
-            if lang_code and edition_lang != lang_code:
-                logger.debug(f"Skipping edition {edition_set} - language {edition_lang} doesn't match {lang_code}")
-                include = False
-
-            if include:
-                logger.debug(f"Including edition: {edition_set} (lang: {edition_lang})")
+            # If we're looking for a specific set, prioritize that set
+            if set_code and edition_set == set_code.upper():
                 # Add Portuguese availability flag
                 portuguese_version_exists = any(
                     ed['set'].upper() == edition_set and ed['lang'] == 'pt'
@@ -253,6 +246,41 @@ def get_card_by_lang_and_set():
                 )
                 edition['is_portuguese_available'] = portuguese_version_exists
                 filtered_editions.append(edition)
+                target_edition_found = True
+                logger.debug(f"Found target edition: {edition_set} (lang: {edition_lang})")
+                
+                # If we found the target set but wrong language, try to find the right language in the same set
+                if lang_code and edition_lang != lang_code:
+                    # Look for the same set with the requested language
+                    for other_edition in editions:
+                        if (other_edition.get('set', '').upper() == edition_set and 
+                            other_edition.get('lang', 'en') == lang_code):
+                            logger.debug(f"Found same set with requested language: {edition_set} (lang: {lang_code})")
+                            filtered_editions = [other_edition]  # Replace with the correct language version
+                            break
+
+        # If no specific set was requested, or set not found, filter by language
+        if not target_edition_found:
+            for edition in editions:
+                edition_set = edition.get('set', '').upper()
+                edition_lang = edition.get('lang', 'en')
+                
+                # If language is specified, only include matching languages
+                if lang_code and edition_lang == lang_code:
+                    portuguese_version_exists = any(
+                        ed['set'].upper() == edition_set and ed['lang'] == 'pt'
+                        for ed in editions
+                    )
+                    edition['is_portuguese_available'] = portuguese_version_exists
+                    filtered_editions.append(edition)
+                elif not lang_code:
+                    # No language filter, include all
+                    portuguese_version_exists = any(
+                        ed['set'].upper() == edition_set and ed['lang'] == 'pt'
+                        for ed in editions
+                    )
+                    edition['is_portuguese_available'] = portuguese_version_exists
+                    filtered_editions.append(edition)
 
         logger.info(f"Filtered to {len(filtered_editions)} matching editions")
         
