@@ -268,9 +268,9 @@ class MTGProxyForge {
                 // Update card title
                 const cardTitleElement = cardElement.querySelector('.card-title');
                 if (cardTitleElement) {
-                    const displayName = data.card.name || data.card.printed_name || card.name;
-                    cardTitleElement.textContent = displayName;
-                    cardTitleElement.title = displayName;
+                    const cardDisplayName = data.card.name || data.card.printed_name || card.name;
+                    cardTitleElement.textContent = cardDisplayName;
+                    cardTitleElement.title = cardDisplayName;
                     
                     // Update set information
                     const setNameElement = cardElement.querySelector('.card-text.small');
@@ -278,10 +278,11 @@ class MTGProxyForge {
                         setNameElement.textContent = data.card.set_name || `${data.card.set_code || data.card.set || 'Unknown'} Set`;
                     }
 
-                    // Update dropdowns to reflect current selection
+                    // Update dropdowns to reflect current selection and available options
                     this.updateDropdowns(cardIndex, data.card);
+                    this.updateLanguageOptions(cardIndex, data.available_languages);
 
-                    console.log(`Card updated: ${displayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
+                    console.log(`Card updated: ${cardDisplayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
                 }
 
             } else {
@@ -326,6 +327,25 @@ class MTGProxyForge {
             editionSelector.value = setCode;
             console.log(`Updated edition selector to: ${setCode}`);
         }
+    }
+
+    updateLanguageOptions(cardIndex, availableLanguages) {
+        const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
+        if (!cardElement) return;
+        
+        const langSelector = cardElement.querySelector('.language-selector');
+        if (!langSelector || !availableLanguages) return;
+        
+        const currentValue = langSelector.value;
+        
+        // Update options
+        langSelector.innerHTML = availableLanguages.map(language => `
+            <option value="${language.code}" ${language.code === currentValue ? 'selected' : ''}>
+                ${language.name}
+            </option>
+        `).join('');
+        
+        console.log(`Updated language options for card ${cardIndex}:`, availableLanguages);
     }
 
     useLatestEditions() {

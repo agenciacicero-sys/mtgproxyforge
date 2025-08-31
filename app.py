@@ -252,8 +252,10 @@ def get_card_by_lang_and_set():
 
         logger.info(f"Filtered to {len(filtered_editions)} matching editions")
 
-        # Get unique languages and sets from filtered results
-        languages = scryfall_service.get_unique_languages(filtered_editions)
+        # Get unique languages from ALL editions (not just filtered ones)
+        all_languages = scryfall_service.get_unique_languages(editions)
+        
+        # Get unique sets from filtered results
         sets = list({ed['set']: ed['set_name'] for ed in filtered_editions}.items())
         sets.sort(key=lambda x: x[1])  # Sort by set name
 
@@ -276,7 +278,7 @@ def get_card_by_lang_and_set():
 
         return jsonify({
             'card': selected_card,
-            'available_languages': languages,
+            'available_languages': all_languages,
             'available_sets': [{'code': s[0], 'name': s[1]} for s in sets],
             'total_matches': len(filtered_editions)
         })
