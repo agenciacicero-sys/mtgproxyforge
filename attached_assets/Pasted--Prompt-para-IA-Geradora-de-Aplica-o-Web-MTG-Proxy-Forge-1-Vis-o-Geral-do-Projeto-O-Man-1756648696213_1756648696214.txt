@@ -1,0 +1,274 @@
+# Prompt para IA Geradora de Aplicação Web: "MTG Proxy Forge"
+
+## 1. Visão Geral do Projeto (O Manifesto)
+Crie uma aplicação web de página única chamada "MTG Proxy Forge". O objetivo da aplicação é permitir que um usuário cole uma lista de cartas de Magic: The Gathering de **qualquer tamanho** no formato do MTG Arena, visualize as imagens de **todas as cartas da lista**, selecione edições específicas para cada carta, e finalmente gere um arquivo PDF pronto para impressão em papel A4, com **9 cartas por página** (formato 3x3 aplicado apenas na geração do PDF).
+
+## 2. Stack de Tecnologia (Os Personagens)
+- **Backend:** Python 3 com o micro-framework Flask
+- **Frontend:** HTML5, CSS3 e JavaScript puro (Vanilla JS, sem frameworks como React/Vue para manter a simplicidade). O CSS deve ser funcional e limpo, sem a necessidade de ser esteticamente deslumbrante
+- **API Externa:** A aplicação deve utilizar exclusivamente a API da Scryfall (api.scryfall.com) para buscar todas as informações e imagens das cartas
+
+## 3. Fluxo de Usuário Detalhado (O Roteiro)
+
+### Página Inicial
+A página deve conter um único título, uma grande área de texto (`<textarea>`) para o usuário colar a lista de cartas de **qualquer tamanho**, e um botão "Processar Lista".
+
+### Ação de Processar
+Ao clicar no botão, o frontend deve exibir um indicador de carregamento. A lista completa de cartas da área de texto é enviada para o backend.
+
+### Tela de Revisão (Lista Completa)
+Após o processamento no backend, a página é atualizada dinamicamente (sem recarregar). O indicador de carregamento desaparece e **todas as cartas da lista** são exibidas em uma lista/grade scrollável. Cada entrada deve mostrar:
+- A imagem da carta (priorizando português)
+- O nome da carta em português (se disponível)
+- A quantidade especificada na lista
+- Um menu suspenso (`<select>`) para seleção de edição
+
+### Interação de Seleção de Edição
+- O menu suspenso de cada carta deve ser populado com todas as edições (sets) disponíveis para aquela carta, obtidas da Scryfall
+- A edição inicial exibida deve ser a especificada na lista do Arena. Se nenhuma for especificada, use a impressão mais recente
+- Quando o usuário seleciona uma nova edição no menu, a imagem da carta deve ser atualizada instantaneamente para refletir a nova arte
+
+### Geração do PDF
+Abaixo da lista de revisão, deve haver um botão "Gerar PDF para Impressão". Ao ser clicado, o frontend envia a lista final de cartas (com as edições selecionadas pelo usuário) para o backend, que:
+1. Organiza as cartas no formato 3x3 (9 cartas por página)
+2. Gera um PDF otimizado para impressão com **máxima qualidade**
+3. Disponibiliza o PDF para download
+
+#### **ESPECIFICAÇÕES CRÍTICAS DO PDF (QUALIDADE DE IMPRESSÃO PROFISSIONAL):**
+
+**Formato e Dimensões:**
+- Papel A4 (210 × 297 mm)
+- Cada carta deve ter exatamente 63mm × 88mm (tamanho padrão MTG)
+- Resolução mínima de 300 DPI para qualidade de impressão profissional
+- Margens calculadas automaticamente para centralizar o grid 3x3
+
+**Linhas de Corte e Guias de Impressão:**
+- **Linhas de corte horizontais e verticais** entre todas as cartas
+- Linhas finas (0.25pt) em cor escura (#333333 ou similar)
+- Linhas devem se estender 2-3mm além da área das cartas para facilitar o corte
+- **Marcações de canto arredondado:** pequenas marcas curvas nos 4 cantos de cada carta para guiar o arredondamento das bordas (raio de aproximadamente 3mm)
+
+**Qualidade das Imagens:**
+- Baixar imagens das cartas na maior resolução disponível na Scryfall
+- Se possível, usar as imagens 'border_crop' ou 'large' da Scryfall
+- Manter proporção exata das cartas sem distorção
+- Aplicar anti-aliasing e suavização adequada
+
+## 4. Requisitos Técnicos Específicos (As Regras do Jogo - Edição Detalhada)
+
+### URL Base da API Externa
+Todas as chamadas para a API da Scryfall devem usar a base `https://api.scryfall.com`.
+
+### Lógica de Idioma (REQUISITO CRÍTICO E INEGOCIÁVEL):
+A aplicação deve ter como prioridade absoluta o idioma Português (Brasil).
+SEMPRE, em TODAS as chamadas à API da Scryfall para obter dados de uma carta, tente primeiro com o parâmetro lang=pt.
+Apenas se essa chamada resultar em um erro 404 (Não Encontrado), o backend deve, IMEDIATAMENTE E AUTOMATICAMENTE, refazer a mesmíssima chamada, mas desta vez sem o parâmetro de idioma (ou com lang=en) para obter a versão em inglês como fallback.
+O usuário final não deve perceber essa troca; para ele, a carta simplesmente "aparece", priorizando o português sempre que existir.
+
+### Busca de Cartas por ID (MELHORIA CRÍTICA):
+Para garantir que cartas sejam encontradas mesmo quando o usuário fornece nomes em idiomas diferentes:
+1. Buscar a carta pelo nome usando busca fuzzy para obter o ID único
+2. Usar o ID para fazer a busca definitiva com prioridade ao português
+3. Aplicar fallback para inglês se necessário
+
+#### Fluxo de Busca por ID:
+- **Passo 1:** Busca inicial fuzzy: `GET /cards/named?fuzzy=NOME_DA_CARTA`
+- **Passo 2:** Extrair o `id` da resposta
+- **Passo 3:** Busca por ID em português: `GET /cards/ID?lang=pt`
+- **Passo 4:** Se 404, buscar em inglês: `GET /cards/ID`
+
+### Endpoints Específicos da Scryfall a Serem Utilizados
+
+#### Para busca inicial de carta (obter ID):
+- **Endpoint:** `GET /cards/named`
+- **Query:** `?fuzzy=NOME_DA_CARTA`
+- **Exemplo:** `https://api.scryfall.com/cards/named?fuzzy=Sol%20Ring`
+
+#### Para busca por ID com idioma específico:
+- **Endpoint:** `GET /cards/{id}`
+- **Query:** `?lang=pt` (para português, omitir para inglês)
+- **Exemplo:** `https://api.scryfall.com/cards/12345678-1234-1234-1234-123456789abc?lang=pt`
+
+#### Para popular o menu suspenso de edições:
+- **Endpoint:** `GET /cards/search`
+- **Query:** `?q=!"NOME_DA_CARTA"&unique=prints`
+- **Exemplo:** `https://api.scryfall.com/cards/search?q=!"Sol%20Ring"&unique=prints`
+
+#### Para buscar carta específica de uma edição:
+- **Endpoint:** `GET /cards/named`
+- **Query:** `?exact=NOME_DA_CARTA&set=CODIGO_DO_SET&lang=pt` (tentar português primeiro)
+- **Exemplo:** `https://api.scryfall.com/cards/named?exact=Anel%20Solar&set=cmm&lang=pt`
+
+### Parsing da Lista
+O backend deve ser capaz de interpretar o formato do MTG Arena para listas de qualquer tamanho, extraindo:
+- **Quantidade:** Número de cópias da carta
+- **Nome:** Nome da carta (em qualquer idioma)
+- **Código da Edição:** Se especificado (formato entre parênteses)
+
+**Exemplo:** `4 Sol Ring (CMM) 464` ou `1 Lightning Bolt` ou `2 Raio (M19)`
+
+### Lógica do Backend (Flask)
+
+#### Endpoint `/api/process-list`:
+- Recebe a lista completa (qualquer tamanho)
+- Para cada carta única:
+  1. Executa a lógica de busca multilíngue (ID → português → inglês fallback)
+  2. Busca todas as edições disponíveis para popular o menu suspenso
+- Retorna JSON com todas as cartas processadas para o frontend
+
+#### Endpoint `/api/generate-pdf`:
+- Recebe a lista final com edições selecionadas
+- Organiza as cartas no formato 3x3 (9 por página)
+- **Baixa imagens na máxima qualidade disponível (preferencialmente 'large' ou 'border_crop' da Scryfall)**
+- **Gera PDF otimizado para impressão profissional com:**
+  - **Resolução de 300 DPI mínimo**
+  - **Dimensões exatas de carta MTG (63mm × 88mm cada)**
+  - **Linhas de corte horizontais e verticais precisas**
+  - **Marcações de canto arredondado em todos os cantos**
+  - **Múltiplas páginas A4 conforme necessário**
+- Disponibiliza para download
+
+## 5. Tratamento de Quantidades na Lista
+- Se uma carta aparece com quantidade > 1 (ex: `4 Lightning Bolt`), ela deve aparecer **uma única vez** na tela de revisão
+- Na geração do PDF, a carta deve ser replicada de acordo com sua quantidade
+- **Exemplo:** `4 Lightning Bolt` resulta em 1 entrada na tela de revisão, mas 4 cartas no PDF final
+
+## 6. Layout Responsivo da Tela de Revisão
+- A lista de cartas deve ser apresentada de forma organizada (grid ou lista)
+- Deve suportar scroll para listas grandes
+- Cada entrada deve mostrar claramente: imagem, nome (português quando disponível), quantidade, e seletor de edição
+- Interface deve ser funcional em diferentes tamanhos de tela
+
+## 7. Biblioteca de Geração de PDF (REQUISITO TÉCNICO ESPECÍFICO)
+Para atingir a qualidade de impressão profissional especificada, recomenda-se usar:
+- **Python:** ReportLab ou WeasyPrint para controle preciso de dimensões e DPI
+- **Configuração de página:** Medidas exatas em milímetros/pontos
+- **Gestão de cores:** Perfil de cor adequado para impressão (CMYK se possível)
+- **Compressão:** Balanceada para manter qualidade sem arquivo excessivamente grande
+
+## 8. Boas Práticas de Código (A Etiqueta)
+- O código Python deve ser modular (separar as rotas do Flask da lógica de Scryfall e da geração de PDF)
+- Implementar cache básico para evitar requisições desnecessárias à API da Scryfall
+- Adicionar comentários claros nas partes complexas, tanto no Python quanto no JavaScript
+- Implementar tratamento robusto de erros:
+  - Carta não encontrada na Scryfall
+  - Falhas de rede
+  - Listas malformadas
+  - Limites de taxa da API da Scryfall
+- Implementar indicadores de progresso para listas grandes
+- Validação de entrada do usuário (formato da lista)
+
+## 9. Experiência do Usuário (UX) Detalhada
+
+### Interface da Tela de Revisão
+- **Layout em Cards:** Cada carta deve ser apresentada como um card individual contendo:
+  - Imagem da carta em tamanho adequado para visualização
+  - Nome da carta destacado
+  - Indicador visual da quantidade (badge ou contador)
+  - Dropdown de edições estilizado e fácil de usar
+  - Status visual quando a imagem está carregando
+
+### Feedback Visual e Estados
+- **Loading States:** 
+  - Skeleton loading para cards durante o carregamento inicial
+  - Spinner individual em cada card ao trocar edições
+  - Barra de progresso para listas muito grandes (50+ cartas)
+  - Loading overlay durante geração do PDF
+
+- **Estados de Erro:**
+  - Card com placeholder e mensagem clara para cartas não encontradas
+  - Toast notifications para erros de rede
+  - Retry button para cartas que falharam ao carregar
+
+### Interações e Usabilidade
+- **Busca e Filtro:** 
+  - Campo de busca para filtrar cartas na tela de revisão
+  - Filtros por tipo de carta, cor, raridade se possível
+  - Contador total de cartas e páginas estimadas do PDF
+
+- **Seleção em Massa:**
+  - Botão para "usar sempre a edição mais recente" para todas as cartas
+  - Botão para "usar sempre a edição original especificada"
+  - Seleção múltipla para aplicar mesma edição a várias cartas
+
+### Organização Visual
+- **Grid Responsivo:**
+  - Desktop: 4-6 cards por linha
+  - Tablet: 3-4 cards por linha  
+  - Mobile: 2 cards por linha ou lista vertical
+  - Scroll infinito ou paginação para listas muito grandes
+
+- **Ordenação:**
+  - Manter ordem original da lista por padrão
+  - Opções de reordenação: alfabética, por cor, por custo de mana
+  - Drag & drop para reordenar manualmente
+
+### Preview do PDF
+- **Visualização Prévia:** Antes de gerar o PDF, mostrar:
+  - Quantas páginas serão geradas
+  - Preview da primeira página no formato 3x3 **com linhas de corte visíveis**
+  - **Opções de configuração de impressão:**
+    - Qualidade da imagem (Alta/Máxima)
+    - Espessura das linhas de corte
+    - Mostrar/ocultar marcações de canto arredondado
+    - Opção de incluir numeração das páginas
+
+### **Configurações Avançadas de PDF:**
+- **Toggle para elementos de impressão:**
+  - Linhas de corte (on/off)
+  - Marcações de canto (on/off)
+  - Margem extra para sangria (bleed)
+- **Qualidade de exportação:**
+  - Modo econômico (150 DPI)
+  - Modo padrão (300 DPI) 
+  - **Modo profissional (600 DPI) - RECOMENDADO**
+- **Orientação e layout:**
+  - Confirmar formato A4
+  - Opção de incluir nome do arquivo personalizado
+
+### Melhorias de Performance UX
+- **Carregamento Inteligente:**
+  - Lazy loading das imagens dos cards
+  - Cache de imagens já carregadas
+  - Prioritizar carregamento dos cards visíveis primeiro
+
+- **Feedback de Progresso:**
+  - Contador em tempo real: "Processando carta X de Y"
+  - Estimativa de tempo restante para listas grandes
+  - Possibilidade de cancelar operação em andamento
+
+### Acessibilidade e Conforto
+- **Navegação por Teclado:**
+  - Tab navigation através dos dropdowns
+  - Atalhos de teclado para ações comuns (Ctrl+G para gerar PDF)
+  - Suporte a screen readers
+
+- **Configurações de Visualização:**
+  - Toggle para dark/light mode
+  - Opção de aumentar/diminuir tamanho das imagens dos cards
+  - Modo compacto para listas muito grandes
+
+### Integração com MTG Arena
+- **Validação da Lista:**
+  - Detectar e alertar sobre formatos de lista não reconhecidos
+  - Sugerir correções para entradas malformadas
+  - Preview da lista parseada antes de processar
+
+- **Export/Import:**
+  - Salvar configurações de edições escolhidas (JSON local)
+  - Importar configurações salvas anteriormente
+  - Exportar lista final no formato Arena
+
+## 10. Fluxo de Erro e Recovery
+
+### Tratamento de Listas Problemáticas
+- **Cartas Não Encontradas:**
+  - Continuar processamento das outras cartas
+  - Lista de cartas problemáticas no final
+  - Opção de editar nomes manualmente e reprocessar
+
+### Recuperação de Sessão
+- **Auto-save Local:**
+  - Salvar progresso automaticamente no localStorage
+  - Recuperar lista e seleções após refresh da página
+  - Aviso antes de sair da página com trabalho não salvo

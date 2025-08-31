@@ -1,0 +1,217 @@
+/* Custom styles for MTG Proxy Forge */
+
+/* Card preview styling */
+.card-preview {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card-preview:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.card-preview .card-img-top {
+    height: 280px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: var(--bs-gray-900);
+}
+
+.card-preview .placeholder-img {
+    height: 280px;
+    background: var(--bs-gray-800);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-gray-400);
+    border: 2px dashed var(--bs-gray-600);
+}
+
+/* Quantity badge */
+.quantity-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* Loading skeleton animation */
+.skeleton {
+    background: linear-gradient(90deg, 
+        var(--bs-gray-700) 25%, 
+        var(--bs-gray-600) 50%, 
+        var(--bs-gray-700) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton-card {
+    height: 350px;
+    margin-bottom: 20px;
+}
+
+.skeleton-text {
+    height: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-text.short {
+    width: 60%;
+}
+
+/* Edition selector styling */
+.edition-selector {
+    font-size: 0.85rem;
+}
+
+/* Progress bar custom styling */
+.progress {
+    height: 8px;
+    background-color: var(--bs-gray-800);
+}
+
+/* Search and filter styling */
+.search-filter-bar {
+    background: var(--bs-gray-900);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Card error state */
+.card-error {
+    border: 2px dashed var(--bs-danger);
+    opacity: 0.7;
+}
+
+.card-error .placeholder-img {
+    border-color: var(--bs-danger);
+    color: var(--bs-danger);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-preview .card-img-top,
+    .card-preview .placeholder-img {
+        height: 200px;
+    }
+    
+    .quantity-badge {
+        top: 4px;
+        right: 4px;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+    }
+}
+
+/* PDF preview styles */
+.pdf-preview {
+    background: var(--bs-gray-800);
+    border: 2px dashed var(--bs-gray-600);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.pdf-config-section {
+    background: var(--bs-gray-900);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Animation for section transitions */
+.section-transition {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.section-transition.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Loading image overlay */
+.image-loading {
+    position: relative;
+}
+
+.image-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.image-loading::before {
+    content: '⟳';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    color: white;
+    z-index: 3;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Success/Error states */
+.alert {
+    border-radius: 8px;
+}
+
+/* Custom button styles */
+.btn-group .btn {
+    border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 6px;
+    border-bottom-left-radius: 6px;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* Footer styling */
+footer {
+    border-top: 1px solid var(--bs-gray-800);
+    margin-top: auto;
+}
+
+footer a {
+    color: var(--bs-primary);
+}
+
+footer a:hover {
+    color: var(--bs-primary-hover, #0056b3);
+}
