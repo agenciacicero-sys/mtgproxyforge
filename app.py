@@ -34,32 +34,32 @@ def process_list():
         if not request.is_json:
             logger.error("Request is not JSON")
             return jsonify({'error': 'Request must be JSON'}), 400
-        
+
         data = request.get_json()
         if not data:
             logger.error("No JSON data received")
             return jsonify({'error': 'No data received'}), 400
-            
+
         card_list_text = data.get('cardList', '').strip()
-        
+
         if not card_list_text:
             return jsonify({'error': 'Empty card list provided'}), 400
-        
+
         logger.info(f"Processing card list with {len(card_list_text.split(chr(10)))} lines")
-        
+
         # Parse the card list
         parsed_cards = card_parser.parse_card_list(card_list_text)
-        
+
         if not parsed_cards:
             return jsonify({'error': 'No valid cards found in the list'}), 400
-        
+
         # Process each unique card
         processed_cards = []
         for card_info in parsed_cards:
             try:
                 logger.info(f"Processing card: {card_info['name']}")
                 logger.debug(f"Card info: {card_info}")
-                
+
                 # Get card data with Portuguese priority
                 try:
                     card_data = scryfall_service.get_card_by_name(card_info['name'])
@@ -67,7 +67,7 @@ def process_list():
                 except Exception as api_error:
                     logger.error(f"Scryfall API error for {card_info['name']}: {str(api_error)}")
                     card_data = None
-                
+
                 if card_data:
                     logger.debug("Getting editions for card...")
                     # Get all available editions for this card (with timeout protection)
@@ -77,14 +77,14 @@ def process_list():
                     except Exception as e:
                         logger.warning(f"Failed to get editions for {card_info['name']}: {str(e)}")
                         editions = []
-                    
+
                     logger.debug("Processing default edition...")
                     # Find the default edition (specified in list or most recent)
                     set_code = card_info.get('set_code')
                     logger.debug(f"Set code from card_info: {set_code}")
                     default_edition = set_code.upper() if set_code else None
                     logger.debug(f"Default edition: {default_edition}")
-                    
+
                     # Priority: 1) Portuguese card_data if found, 2) Specified edition, 3) Most recent
                     if card_data.get('lang') == 'pt':
                         # Use the Portuguese version we already found
@@ -102,12 +102,12 @@ def process_list():
                         if first_edition.get('lang') == 'pt':
                             logger.debug("Using first Portuguese edition from editions list")
                             card_data = first_edition
-                    
+
                     logger.debug("Building processed card data...")
                     try:
                         # Get unique languages from editions
                         languages = scryfall_service.get_unique_languages(editions) if editions else []
-                        
+
                         processed_card = {
                             'name': card_data.get('printed_name') or card_data.get('name', ''),
                             'quantity': card_info['quantity'],
@@ -141,7 +141,7 @@ def process_list():
                         'original_name': card_info['name'],
                         'error': 'Card not found'
                     })
-                    
+
             except Exception as e:
                 logger.error(f"Error processing card {card_info['name']}: {str(e)}")
                 processed_cards.append({
@@ -155,16 +155,16 @@ def process_list():
                     'original_name': card_info['name'],
                     'error': f'Network error - please try again'
                 })
-        
+
         total_cards = sum(card['quantity'] for card in processed_cards)
         estimated_pages = (total_cards + 8) // 9  # Round up for 9 cards per page
-        
+
         return jsonify({
             'cards': processed_cards,
             'total_cards': total_cards,
             'estimated_pages': estimated_pages
         })
-        
+
     except Exception as e:
         logger.error(f"Error in process_list: {str(e)}")
         return jsonify({'error': f'Failed to process card list: {str(e)}'}), 500
@@ -176,14 +176,18 @@ def get_card_by_edition():
         data = request.get_json()
         card_name = data.get('cardName')
         set_code = data.get('setCode')
-        
+
         if not card_name or not set_code:
             return jsonify({'error': 'Missing card name or set code'}), 400
-        
+
         # Get card from specific edition
         card_data = scryfall_service.get_card_by_name_and_set(card_name, set_code)
-        
+
         if card_data:
+            # Check for Portuguese version availability
+            portuguese_card = scryfall_service.get_card_by_name_and_set(card_name, set_code, lang='pt')
+            is_portuguese_available = bool(portuguese_card)
+
             return jsonify({
                 'name': card_data.get('printed_name') or card_data.get('name', ''),
                 'image_url': card_data.get('image_uris', {}).get('large') or card_data.get('image_uris', {}).get('normal', ''),
@@ -191,11 +195,12 @@ def get_card_by_edition():
                 'set_code': (card_data.get('set') or '').upper(),
                 'set_name': card_data.get('set_name', ''),
                 'lang': card_data.get('lang', 'en'),
-                'lang_name': scryfall_service._get_language_name(card_data.get('lang', 'en'))
+                'lang_name': scryfall_service._get_language_name(card_data.get('lang', 'en')),
+                'is_portuguese_available': is_portuguese_available
             })
         else:
             return jsonify({'error': 'Card not found in specified edition'}), 404
-            
+
     except Exception as e:
         logger.error(f"Error in get_card_by_edition: {str(e)}")
         return jsonify({'error': f'Failed to get card data: {str(e)}'}), 500
@@ -208,44 +213,50 @@ def get_card_by_lang_and_set():
         card_name = data.get('cardName')
         set_code = data.get('setCode')
         lang_code = data.get('langCode')
-        
+
         logger.info(f"Getting card by filters: name={card_name}, set={set_code}, lang={lang_code}")
-        
+
         if not card_name:
             return jsonify({'error': 'Missing card name'}), 400
-        
+
         # Get all editions for the card
         editions = scryfall_service.get_card_editions(card_name)
         logger.debug(f"Found {len(editions)} total editions")
-        
+
         # Filter editions based on criteria
         filtered_editions = []
         for edition in editions:
             include = True
             edition_set = edition.get('set', '').upper()
             edition_lang = edition.get('lang', 'en')
-            
+
             logger.debug(f"Checking edition: {edition_set} (lang: {edition_lang})")
-            
+
             if set_code and edition_set != set_code.upper():
                 logger.debug(f"Skipping edition {edition_set} - doesn't match requested set {set_code}")
                 include = False
-            
+
             if lang_code and edition_lang != lang_code:
                 logger.debug(f"Skipping edition {edition_set} - language {edition_lang} doesn't match {lang_code}")
                 include = False
-                
+
             if include:
                 logger.debug(f"Including edition: {edition_set} (lang: {edition_lang})")
+                # Add Portuguese availability flag
+                portuguese_version_exists = any(
+                    ed['set'].upper() == edition_set and ed['lang'] == 'pt'
+                    for ed in editions
+                )
+                edition['is_portuguese_available'] = portuguese_version_exists
                 filtered_editions.append(edition)
-        
+
         logger.info(f"Filtered to {len(filtered_editions)} matching editions")
-        
+
         # Get unique languages and sets from filtered results
         languages = scryfall_service.get_unique_languages(filtered_editions)
         sets = list({ed['set']: ed['set_name'] for ed in filtered_editions}.items())
         sets.sort(key=lambda x: x[1])  # Sort by set name
-        
+
         # Return the first matching card if found, plus filter options
         selected_card = None
         if filtered_editions:
@@ -256,19 +267,20 @@ def get_card_by_lang_and_set():
                 'set_code': filtered_editions[0].get('set', '').upper(),
                 'set_name': filtered_editions[0].get('set_name', ''),
                 'lang': filtered_editions[0].get('lang', 'en'),
-                'lang_name': scryfall_service._get_language_name(filtered_editions[0].get('lang', 'en'))
+                'lang_name': scryfall_service._get_language_name(filtered_editions[0].get('lang', 'en')),
+                'is_portuguese_available': filtered_editions[0].get('is_portuguese_available', False)
             }
             logger.info(f"Selected card: {selected_card['name']} from {selected_card['set_code']} in {selected_card['lang']}")
         else:
             logger.warning(f"No matching editions found for filters: set={set_code}, lang={lang_code}")
-        
+
         return jsonify({
             'card': selected_card,
             'available_languages': languages,
             'available_sets': [{'code': s[0], 'name': s[1]} for s in sets],
             'total_matches': len(filtered_editions)
         })
-        
+
     except Exception as e:
         logger.error(f"Error in get_card_by_lang_and_set: {str(e)}")
         return jsonify({'error': f'Failed to get card data: {str(e)}'}), 500
@@ -280,19 +292,19 @@ def generate_pdf():
         data = request.get_json()
         cards = data.get('cards', [])
         config = data.get('config', {})
-        
+
         if not cards:
             return jsonify({'error': 'No cards provided'}), 400
-        
+
         logger.info(f"Generating PDF for {len(cards)} unique cards")
-        
+
         # Create temporary file for PDF
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
         temp_file.close()
-        
+
         # Generate PDF
         success = pdf_generator.generate_pdf(cards, temp_file.name, config)
-        
+
         if success:
             return send_file(
                 temp_file.name,
@@ -302,7 +314,7 @@ def generate_pdf():
             )
         else:
             return jsonify({'error': 'Failed to generate PDF'}), 500
-            
+
     except Exception as e:
         logger.error(f"Error in generate_pdf: {str(e)}")
         return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500

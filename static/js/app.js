@@ -159,11 +159,14 @@ class MTGProxyForge {
                         <div class="mb-2">
                             <label class="form-label small text-muted">Edição:</label>
                             <select class="form-select form-select-sm edition-selector" onchange="app.changeEdition(${index}, this.value)">
-                                ${card.editions.map(edition => `
-                                    <option value="${edition.set}" ${edition.set === card.set_code ? 'selected' : ''}>
-                                        ${edition.set_name} (${edition.set.toUpperCase()})
-                                    </option>
-                                `).join('')}
+                                ${card.editions.map(edition => {
+                                    const portugueseIndicator = edition.has_portuguese ? '🇵🇹 ' : '';
+                                    return `
+                                        <option value="${edition.set}" ${edition.set === card.set_code ? 'selected' : ''}>
+                                            ${portugueseIndicator}${edition.set_name} (${edition.set.toUpperCase()})
+                                        </option>
+                                    `;
+                                }).join('')}
                             </select>
                         </div>
                     ` : ''}
@@ -268,18 +271,18 @@ class MTGProxyForge {
                     const displayName = data.card.name || data.card.printed_name || card.name;
                     cardTitleElement.textContent = displayName;
                     cardTitleElement.title = displayName;
+                    
+                    // Update set information
+                    const setNameElement = cardElement.querySelector('.card-text.small');
+                    if (setNameElement) {
+                        setNameElement.textContent = data.card.set_name || `${data.card.set_code || data.card.set || 'Unknown'} Set`;
+                    }
+
+                    // Update dropdowns to reflect current selection
+                    this.updateDropdowns(cardIndex, data.card);
+
+                    console.log(`Card updated: ${displayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
                 }
-
-                // Update set information
-                const setNameElement = cardElement.querySelector('.card-text.small');
-                if (setNameElement) {
-                    setNameElement.textContent = data.card.set_name || `${data.card.set_code || data.card.set || 'Unknown'} Set`;
-                }
-
-                // Update dropdowns to reflect current selection
-                this.updateDropdowns(cardIndex, data.card);
-
-                console.log(`Card updated: ${displayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
 
             } else {
                 const errorMsg = data.error || 'Carta não encontrada com os filtros especificados';
@@ -296,6 +299,13 @@ class MTGProxyForge {
         } finally {
             cardElement.classList.remove('image-loading');
         }
+    }
+
+    checkPortugueseAvailability(editions, setCode) {
+        // Check if there's any Portuguese version available for this set
+        return editions.some(edition => 
+            edition.set === setCode && edition.lang === 'pt'
+        );
     }
 
     updateDropdowns(cardIndex, cardData) {

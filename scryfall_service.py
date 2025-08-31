@@ -173,6 +173,9 @@ class ScryfallService:
                 return []
             
             editions = []
+            sets_with_portuguese = set()  # Track which sets have Portuguese versions
+            
+            # First pass: collect all editions and track Portuguese availability
             for card in response['data']:
                 if len(editions) >= limit:
                     break
@@ -180,10 +183,15 @@ class ScryfallService:
                 # Get language information
                 lang = card.get('lang', 'en')
                 lang_name = self._get_language_name(lang)
+                set_code = (card.get('set') or '').upper()
+                
+                # Track sets that have Portuguese versions
+                if lang == 'pt':
+                    sets_with_portuguese.add(set_code)
                 
                 edition_info = {
                     'name': card.get('printed_name') or card.get('name', ''),
-                    'set': (card.get('set') or '').upper(),
+                    'set': set_code,
                     'set_name': card.get('set_name', ''),
                     'released_at': card.get('released_at', ''),
                     'image_uris': card.get('image_uris', {}),
@@ -193,6 +201,10 @@ class ScryfallService:
                     'lang_name': lang_name
                 }
                 editions.append(edition_info)
+            
+            # Second pass: add Portuguese availability info to all editions
+            for edition in editions:
+                edition['has_portuguese'] = edition['set'] in sets_with_portuguese
             
             # Sort by language priority (Portuguese first), then by release date
             def sort_key(x):
