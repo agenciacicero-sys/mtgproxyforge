@@ -188,10 +188,16 @@ class MTGProxyForge {
 
     async updateCardByFilters(cardIndex, langCode, setCode) {
         const card = this.processedCards[cardIndex];
-        if (!card) return;
+        if (!card) {
+            console.error('Card not found at index:', cardIndex);
+            return;
+        }
 
         const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
-        if (!cardElement) return;
+        if (!cardElement) {
+            console.error('Card element not found for index:', cardIndex);
+            return;
+        }
 
         const imgElement = cardElement.querySelector('img');
         const placeholderElement = cardElement.querySelector('.placeholder-img');
@@ -200,19 +206,25 @@ class MTGProxyForge {
         cardElement.classList.add('image-loading');
 
         try {
+            const requestBody = { 
+                cardName: card.original_name || card.name,
+                setCode: setCode,
+                langCode: langCode
+            };
+            
+            console.log('Sending request with:', requestBody);
+
             const response = await fetch('/api/get-card-by-lang-and-set', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ 
-                    cardName: card.original_name || card.name,
-                    setCode: setCode,
-                    langCode: langCode
-                })
+                body: JSON.stringify(requestBody)
             });
 
+            console.log('Response status:', response.status);
             const data = await response.json();
+            console.log('Response data:', data);
 
             if (response.ok && data.card) {
                 // Update card data in the array
@@ -270,13 +282,17 @@ class MTGProxyForge {
                 console.log(`Card updated: ${displayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
 
             } else {
+                const errorMsg = data.error || 'Carta não encontrada com os filtros especificados';
                 console.error('API response error:', data);
-                this.showError(`Erro ao carregar carta: ${data.error || 'Não encontrada'}`);
+                console.error('Error message:', errorMsg);
+                this.showError(`Erro ao carregar carta: ${errorMsg}`);
             }
 
         } catch (error) {
-            console.error('Error updating card:', error);
-            this.showError('Erro ao carregar nova versão da carta');
+            console.error('Error updating card - full error:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            this.showError(`Erro ao carregar nova versão da carta: ${error.message}`);
         } finally {
             cardElement.classList.remove('image-loading');
         }

@@ -209,25 +209,37 @@ def get_card_by_lang_and_set():
         set_code = data.get('setCode')
         lang_code = data.get('langCode')
         
+        logger.info(f"Getting card by filters: name={card_name}, set={set_code}, lang={lang_code}")
+        
         if not card_name:
             return jsonify({'error': 'Missing card name'}), 400
         
         # Get all editions for the card
         editions = scryfall_service.get_card_editions(card_name)
+        logger.debug(f"Found {len(editions)} total editions")
         
         # Filter editions based on criteria
         filtered_editions = []
         for edition in editions:
             include = True
+            edition_set = edition.get('set', '').upper()
+            edition_lang = edition.get('lang', 'en')
             
-            if set_code and edition.get('set', '').upper() != set_code.upper():
+            logger.debug(f"Checking edition: {edition_set} (lang: {edition_lang})")
+            
+            if set_code and edition_set != set_code.upper():
+                logger.debug(f"Skipping edition {edition_set} - doesn't match requested set {set_code}")
                 include = False
             
-            if lang_code and edition.get('lang') != lang_code:
+            if lang_code and edition_lang != lang_code:
+                logger.debug(f"Skipping edition {edition_set} - language {edition_lang} doesn't match {lang_code}")
                 include = False
                 
             if include:
+                logger.debug(f"Including edition: {edition_set} (lang: {edition_lang})")
                 filtered_editions.append(edition)
+        
+        logger.info(f"Filtered to {len(filtered_editions)} matching editions")
         
         # Get unique languages and sets from filtered results
         languages = scryfall_service.get_unique_languages(filtered_editions)
@@ -235,7 +247,20 @@ def get_card_by_lang_and_set():
         sets.sort(key=lambda x: x[1])  # Sort by set name
         
         # Return the first matching card if found, plus filter options
-        selected_card = filtered_editions[0] if filtered_editions else None
+        selected_card = None
+        if filtered_editions:
+            selected_card = {
+                'name': filtered_editions[0].get('name', ''),
+                'image_url': filtered_editions[0].get('image_uris', {}).get('large') or filtered_editions[0].get('image_uris', {}).get('normal', ''),
+                'scryfall_id': filtered_editions[0].get('id', ''),
+                'set_code': filtered_editions[0].get('set', '').upper(),
+                'set_name': filtered_editions[0].get('set_name', ''),
+                'lang': filtered_editions[0].get('lang', 'en'),
+                'lang_name': scryfall_service._get_language_name(filtered_editions[0].get('lang', 'en'))
+            }
+            logger.info(f"Selected card: {selected_card['name']} from {selected_card['set_code']} in {selected_card['lang']}")
+        else:
+            logger.warning(f"No matching editions found for filters: set={set_code}, lang={lang_code}")
         
         return jsonify({
             'card': selected_card,
