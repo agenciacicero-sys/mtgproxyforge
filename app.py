@@ -105,8 +105,8 @@ def process_list():
 
                     logger.debug("Building processed card data...")
                     try:
-                        # Get unique languages from editions
-                        languages = scryfall_service.get_unique_languages(editions) if editions else []
+                        # Get all supported languages (not just from this card's editions)
+                        languages = scryfall_service.get_all_supported_languages()
 
                         processed_card = {
                             'name': card_data.get('printed_name') or card_data.get('name', ''),
@@ -223,8 +223,8 @@ def get_card_by_lang_and_set():
         editions = scryfall_service.get_card_editions(card_name)
         logger.debug(f"Found {len(editions)} total editions")
 
-        # Always get unique languages from ALL editions first (regardless of filters)
-        all_languages = scryfall_service.get_unique_languages(editions)
+        # Get all supported languages by MTG (not just from this card's editions)
+        all_languages = scryfall_service.get_all_supported_languages()
         logger.debug(f"All available languages: {[lang['code'] for lang in all_languages]}")
 
         # Filter editions based on criteria - but be more flexible with language filtering
