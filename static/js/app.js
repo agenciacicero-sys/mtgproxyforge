@@ -175,10 +175,12 @@ class MTGProxyForge {
     }
 
     async changeLanguage(cardIndex, langCode) {
+        console.log(`Changing language for card ${cardIndex} to ${langCode}`);
         await this.updateCardByFilters(cardIndex, langCode, null);
     }
 
     async changeEdition(cardIndex, setCode) {
+        console.log(`Changing edition for card ${cardIndex} to ${setCode}`);
         const card = this.processedCards[cardIndex];
         const currentLang = card.lang || 'en';
         await this.updateCardByFilters(cardIndex, currentLang, setCode);
@@ -189,6 +191,8 @@ class MTGProxyForge {
         if (!card) return;
 
         const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
+        if (!cardElement) return;
+
         const imgElement = cardElement.querySelector('img');
         const placeholderElement = cardElement.querySelector('.placeholder-img');
 
@@ -202,7 +206,7 @@ class MTGProxyForge {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ 
-                    cardName: card.original_name,
+                    cardName: card.original_name || card.name,
                     setCode: setCode,
                     langCode: langCode
                 })
@@ -211,37 +215,62 @@ class MTGProxyForge {
             const data = await response.json();
 
             if (response.ok && data.card) {
-                // Update card data
-                this.processedCards[cardIndex] = {
+                // Update card data in the array
+                const updatedCard = {
                     ...card,
-                    ...data.card,
+                    name: data.card.name || data.card.printed_name || card.name,
+                    image_url: data.card.image_url,
+                    scryfall_id: data.card.scryfall_id || data.card.id,
+                    set_code: data.card.set_code || data.card.set,
+                    set_name: data.card.set_name,
+                    lang: data.card.lang,
+                    lang_name: data.card.lang_name,
                     editions: card.editions, // Keep original editions list
                     languages: card.languages // Keep original languages list
                 };
+                
+                this.processedCards[cardIndex] = updatedCard;
 
-                // Update image
-                if (imgElement && data.card.image_url) {
-                    imgElement.src = data.card.image_url;
-                    imgElement.style.display = 'block';
-                    if (placeholderElement) placeholderElement.style.display = 'none';
+                // Update image with error handling
+                if (data.card.image_url) {
+                    if (imgElement) {
+                        imgElement.onerror = function() {
+                            this.style.display = 'none';
+                            if (placeholderElement) placeholderElement.style.display = 'flex';
+                        };
+                        imgElement.onload = function() {
+                            this.style.display = 'block';
+                            if (placeholderElement) placeholderElement.style.display = 'none';
+                        };
+                        imgElement.src = data.card.image_url;
+                    }
+                } else {
+                    // No image available
+                    if (imgElement) imgElement.style.display = 'none';
+                    if (placeholderElement) placeholderElement.style.display = 'flex';
                 }
 
-                // Update set name and card name
-                const setNameElement = cardElement.querySelector('.card-text.small');
-                if (setNameElement) {
-                    setNameElement.textContent = data.card.set_name || data.card.set || 'Conjunto desconhecido';
-                }
-
+                // Update card title
                 const cardTitleElement = cardElement.querySelector('.card-title');
                 if (cardTitleElement) {
-                    cardTitleElement.textContent = data.card.name;
-                    cardTitleElement.title = data.card.name;
+                    const displayName = data.card.name || data.card.printed_name || card.name;
+                    cardTitleElement.textContent = displayName;
+                    cardTitleElement.title = displayName;
+                }
+
+                // Update set information
+                const setNameElement = cardElement.querySelector('.card-text.small');
+                if (setNameElement) {
+                    setNameElement.textContent = data.card.set_name || `${data.card.set_code || data.card.set || 'Unknown'} Set`;
                 }
 
                 // Update dropdowns to reflect current selection
                 this.updateDropdowns(cardIndex, data.card);
 
+                console.log(`Card updated: ${displayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
+
             } else {
+                console.error('API response error:', data);
                 this.showError(`Erro ao carregar carta: ${data.error || 'Não encontrada'}`);
             }
 
@@ -255,17 +284,21 @@ class MTGProxyForge {
 
     updateDropdowns(cardIndex, cardData) {
         const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
+        if (!cardElement) return;
         
         // Update language selector
         const langSelector = cardElement.querySelector('.language-selector');
-        if (langSelector) {
-            langSelector.value = cardData.lang || 'en';
+        if (langSelector && cardData.lang) {
+            langSelector.value = cardData.lang;
+            console.log(`Updated language selector to: ${cardData.lang}`);
         }
 
         // Update edition selector
         const editionSelector = cardElement.querySelector('.edition-selector');
-        if (editionSelector) {
-            editionSelector.value = cardData.set || '';
+        if (editionSelector && (cardData.set || cardData.set_code)) {
+            const setCode = cardData.set || cardData.set_code;
+            editionSelector.value = setCode;
+            console.log(`Updated edition selector to: ${setCode}`);
         }
     }
 
