@@ -30,7 +30,16 @@ def index():
 def process_list():
     """Process MTG Arena card list and return card data with editions"""
     try:
+        # Check if request has JSON data
+        if not request.is_json:
+            logger.error("Request is not JSON")
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
         data = request.get_json()
+        if not data:
+            logger.error("No JSON data received")
+            return jsonify({'error': 'No data received'}), 400
+            
         card_list_text = data.get('cardList', '').strip()
         
         if not card_list_text:
@@ -52,8 +61,12 @@ def process_list():
                 logger.debug(f"Card info: {card_info}")
                 
                 # Get card data with Portuguese priority
-                card_data = scryfall_service.get_card_by_name(card_info['name'])
-                logger.debug(f"Card data received: {card_data.get('name') if card_data else None} (lang: {card_data.get('lang') if card_data else None})")
+                try:
+                    card_data = scryfall_service.get_card_by_name(card_info['name'])
+                    logger.debug(f"Card data received: {card_data.get('name') if card_data else None} (lang: {card_data.get('lang') if card_data else None})")
+                except Exception as api_error:
+                    logger.error(f"Scryfall API error for {card_info['name']}: {str(api_error)}")
+                    card_data = None
                 
                 if card_data:
                     logger.debug("Getting editions for card...")

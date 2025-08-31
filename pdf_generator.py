@@ -278,3 +278,39 @@ class PDFGenerator:
         except requests.exceptions.RequestException as e:
             logger.error(f"Error downloading image: {str(e)}")
             return None
+import logging
+import tempfile
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+
+logger = logging.getLogger(__name__)
+
+class PDFGenerator:
+    """Generator for MTG proxy PDFs"""
+    
+    def __init__(self):
+        pass
+    
+    def generate_pdf(self, cards, filename, config=None):
+        """Generate PDF with card proxies"""
+        try:
+            # Create a simple PDF for now
+            c = canvas.Canvas(filename, pagesize=A4)
+            c.drawString(100, 750, "MTG Proxy Cards")
+            
+            y = 700
+            for card in cards:
+                card_text = f"{card.get('quantity', 1)}x {card.get('name', 'Unknown Card')}"
+                c.drawString(100, y, card_text)
+                y -= 20
+                if y < 100:
+                    c.showPage()
+                    y = 750
+            
+            c.save()
+            logger.info(f"PDF generated successfully: {filename}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error generating PDF: {str(e)}")
+            return False
