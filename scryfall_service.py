@@ -110,34 +110,42 @@ class ScryfallService:
             logger.error(f"Error searching for card {card_name}: {str(e)}")
             return None
     
-    def get_card_by_name_and_set(self, card_name, set_code):
+    def get_card_by_name_and_set(self, card_name, set_code, lang=None):
         """Get card from specific edition with Portuguese priority"""
         try:
+            # If a specific language is requested, try that first
+            if lang:
+                exact_url = f"{self.BASE_URL}/cards/{set_code.lower()}/{card_name.lower()}/{lang}"
+                logger.info(f"Searching for {card_name} in set {set_code} (lang: {lang})")
+                card_data = self._make_request(exact_url)
+                if card_data:
+                    return card_data
+            
+            # Try Portuguese version using collector number approach
             exact_url = f"{self.BASE_URL}/cards/named"
             
-            # Try Portuguese first
-            pt_params = {
-                'exact': card_name,
-                'set': (set_code or '').lower(),
-                'lang': 'pt'
-            }
-            
-            logger.info(f"Searching for {card_name} in set {set_code} (Portuguese)")
-            pt_card = self._make_request(exact_url, pt_params)
-            
-            if pt_card:
-                return pt_card
-            
-            # Try with English name if Portuguese fails
+            # First get the English version to find collector number
             en_params = {
                 'exact': card_name,
                 'set': (set_code or '').lower()
             }
             
-            logger.info(f"Searching for {card_name} in set {set_code} (English fallback)")
+            logger.info(f"Getting reference card: {card_name} in set {set_code}")
             en_card = self._make_request(exact_url, en_params)
             
             if en_card:
+                collector_number = en_card.get('collector_number')
+                if collector_number:
+                    # Try to get Portuguese version using collector number
+                    pt_url = f"{self.BASE_URL}/cards/{set_code.lower()}/{collector_number}/pt"
+                    logger.info(f"Trying Portuguese version with collector number: {collector_number}")
+                    pt_card = self._make_request(pt_url)
+                    
+                    if pt_card and pt_card.get('lang') == 'pt':
+                        logger.info(f"Found Portuguese version of {card_name}")
+                        return pt_card
+                
+                # If no Portuguese version found, return English
                 return en_card
             
             # If exact match fails, try fuzzy search within set
@@ -158,6 +166,7 @@ class ScryfallService:
     def get_card_editions(self, card_name, limit=200):
         """Get all available editions for a card with language information"""
         try:
+            # First, try to get all prints using the English name
             search_url = f"{self.BASE_URL}/cards/search"
             params = {
                 'q': f'!"{card_name}"',
@@ -168,18 +177,64 @@ class ScryfallService:
             logger.info(f"Getting editions for: {card_name}")
             response = self._make_request(search_url, params)
             
-            if not response or 'data' not in response:
+            # Also try alternative search to catch translations
+            alt_response = None
+            try:
+                alt_params = {
+                    'q': f'"{card_name}"',  # Without exact match to catch translations
+                    'unique': 'prints',
+                    'order': 'released'
+                }
+                alt_response = self._make_request(search_url, alt_params)
+            except Exception as e:
+                logger.debug(f"Alternative search failed: {e}")
+            
+            all_cards = []
+            
+            # Collect from main response
+            if response and 'data' in response:
+                all_cards.extend(response['data'])
+            
+            # Collect from alternative response if it found different cards
+            if alt_response and 'data' in alt_response:
+                existing_ids = {card.get('id') for card in all_cards}
+                for card in alt_response['data']:
+                    if card.get('id') not in existing_ids:
+                        all_cards.append(card)
+            
+            if not all_cards:
                 logger.warning(f"No editions found for: {card_name}")
                 return []
             
             editions = []
             sets_with_portuguese = set()  # Track which sets have Portuguese versions
+            card_oracle_id = None
             
-            # First pass: collect all editions and track Portuguese availability
-            for card in response['data']:
-                if len(editions) >= limit:
-                    break
-                    
+            # Get oracle ID from first card to find all language variants
+            if all_cards:
+                card_oracle_id = all_cards[0].get('oracle_id')
+                logger.debug(f"Found oracle ID: {card_oracle_id}")
+            
+            # If we have oracle ID, search for all language variants
+            if card_oracle_id:
+                try:
+                    oracle_params = {
+                        'q': f'oracle_id:{card_oracle_id}',
+                        'unique': 'prints'
+                    }
+                    oracle_response = self._make_request(search_url, oracle_params)
+                    if oracle_response and 'data' in oracle_response:
+                        logger.debug(f"Found {len(oracle_response['data'])} cards via oracle ID")
+                        # Merge with existing cards, avoiding duplicates
+                        existing_ids = {card.get('id') for card in all_cards}
+                        for card in oracle_response['data']:
+                            if card.get('id') not in existing_ids:
+                                all_cards.append(card)
+                except Exception as e:
+                    logger.debug(f"Oracle ID search failed: {e}")
+            
+            # Process all cards found
+            for card in all_cards[:limit]:
                 # Get language information
                 lang = card.get('lang', 'en')
                 lang_name = self._get_language_name(lang)
@@ -202,7 +257,7 @@ class ScryfallService:
                 }
                 editions.append(edition_info)
             
-            # Second pass: add Portuguese availability info to all editions
+            # Add Portuguese availability info to all editions
             for edition in editions:
                 edition['has_portuguese'] = edition['set'] in sets_with_portuguese
             
@@ -213,7 +268,7 @@ class ScryfallService:
             
             editions.sort(key=sort_key, reverse=True)
             
-            logger.info(f"Found {len(editions)} editions for {card_name}")
+            logger.info(f"Found {len(editions)} editions for {card_name} (PT sets: {len(sets_with_portuguese)})")
             return editions
             
         except Exception as e:
