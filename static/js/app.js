@@ -53,7 +53,7 @@ class MTGProxyForge {
         if (this.isProcessing) return;
 
         const cardListText = document.getElementById('cardListInput').value.trim();
-        
+
         if (!cardListText) {
             this.showError('Por favor, cole uma lista de cartas válida.');
             return;
@@ -218,7 +218,7 @@ class MTGProxyForge {
                 setCode: setCode,
                 langCode: langCode
             };
-            
+
             console.log('Sending request with:', requestBody);
 
             const response = await fetch('/api/get-card-by-lang-and-set', {
@@ -247,7 +247,7 @@ class MTGProxyForge {
                     editions: card.editions, // Keep original editions list
                     languages: data.available_languages || card.languages // Update with new languages if provided
                 };
-                
+
                 this.processedCards[cardIndex] = updatedCard;
 
                 // Update image with error handling
@@ -275,7 +275,7 @@ class MTGProxyForge {
                     const cardDisplayName = data.card.name || data.card.printed_name || card.name;
                     cardTitleElement.textContent = cardDisplayName;
                     cardTitleElement.title = cardDisplayName;
-                    
+
                     // Update set information
                     const setNameElement = cardElement.querySelector('.card-text.small');
                     if (setNameElement) {
@@ -284,7 +284,7 @@ class MTGProxyForge {
 
                     // Update dropdowns to reflect current selection and available options
                     this.updateDropdowns(cardIndex, data.card);
-                    
+
                     // Update language options with all available languages
                     if (data.available_languages && data.available_languages.length > 0) {
                         this.updateLanguageOptions(cardIndex, data.available_languages);
@@ -320,7 +320,7 @@ class MTGProxyForge {
     updateDropdowns(cardIndex, cardData) {
         const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
         if (!cardElement) return;
-        
+
         // Update language selector
         const langSelector = cardElement.querySelector('.language-selector');
         if (langSelector && cardData.lang) {
@@ -340,19 +340,19 @@ class MTGProxyForge {
     updateLanguageOptions(cardIndex, availableLanguages) {
         const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
         if (!cardElement) return;
-        
+
         const langSelector = cardElement.querySelector('.language-selector');
         if (!langSelector || !availableLanguages) return;
-        
+
         const currentValue = langSelector.value;
-        
+
         // Update options
         langSelector.innerHTML = availableLanguages.map(language => `
             <option value="${language.code}" ${language.code === currentValue ? 'selected' : ''}>
                 ${language.name}
             </option>
         `).join('');
-        
+
         console.log(`Updated language options for card ${cardIndex}:`, availableLanguages);
     }
 
@@ -378,7 +378,7 @@ class MTGProxyForge {
                 const originalEdition = card.editions.find(ed => 
                     ed.set.toLowerCase() === (card.set_code || '').toLowerCase()
                 ) || card.editions[0];
-                
+
                 const selector = document.querySelector(`[data-card-index="${index}"] .edition-selector`);
                 if (selector) {
                     selector.value = originalEdition.set;
@@ -396,7 +396,7 @@ class MTGProxyForge {
         cardElements.forEach(element => {
             const cardTitle = element.querySelector('.card-title').textContent.toLowerCase();
             const cardSet = element.querySelector('.card-text.small').textContent.toLowerCase();
-            
+
             if (cardTitle.includes(term) || cardSet.includes(term)) {
                 element.closest('.col-lg-3').style.display = 'block';
             } else {
@@ -466,7 +466,7 @@ class MTGProxyForge {
     updateProgress(percent, text) {
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
-        
+
         if (progressBar) progressBar.style.width = `${percent}%`;
         if (progressText) progressText.textContent = text;
     }
@@ -495,11 +495,11 @@ class MTGProxyForge {
     showError(message) {
         const errorAlert = document.getElementById('errorAlert');
         const errorMessage = document.getElementById('errorMessage');
-        
+
         errorMessage.textContent = message;
         errorAlert.classList.remove('d-none');
         errorAlert.classList.add('show');
-        
+
         // Auto-hide after 5 seconds
         setTimeout(() => {
             errorAlert.classList.remove('show');
@@ -512,11 +512,11 @@ class MTGProxyForge {
     showSuccess(message) {
         const successAlert = document.getElementById('successAlert');
         const successMessage = document.getElementById('successMessage');
-        
+
         successMessage.textContent = message;
         successAlert.classList.remove('d-none');
         successAlert.classList.add('show');
-        
+
         // Auto-hide after 3 seconds
         setTimeout(() => {
             successAlert.classList.remove('show');
@@ -529,17 +529,17 @@ class MTGProxyForge {
     backToInput() {
         // Clear processed cards
         this.processedCards = [];
-        
+
         // Clear the input textarea (optional - user might want to edit)
         // document.getElementById('cardListInput').value = '';
-        
+
         // Clear search field
         const searchField = document.getElementById('searchCards');
         if (searchField) searchField.value = '';
-        
+
         // Reset to input section
         this.showSection('input');
-        
+
         // Show success message
         this.showSuccess('Pronto para nova lista de cartas!');
     }

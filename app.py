@@ -305,10 +305,14 @@ def get_card_by_lang_and_set():
         else:
             logger.warning(f"No matching editions found for filters: set={set_code}, lang={lang_code}")
 
+        # Get all unique sets from ALL editions (not just filtered ones)
+        all_sets = list({ed['set']: ed['set_name'] for ed in editions}.items())
+        all_sets.sort(key=lambda x: x[1])  # Sort by set name
+
         return jsonify({
             'card': selected_card,
             'available_languages': all_languages,
-            'available_sets': [{'code': s[0], 'name': s[1]} for s in sets],
+            'available_sets': [{'code': s[0], 'name': s[1]} for s in all_sets],
             'total_matches': len(filtered_editions)
         })
 
