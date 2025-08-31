@@ -223,6 +223,10 @@ def get_card_by_lang_and_set():
         editions = scryfall_service.get_card_editions(card_name)
         logger.debug(f"Found {len(editions)} total editions")
 
+        # Always get unique languages from ALL editions first (regardless of filters)
+        all_languages = scryfall_service.get_unique_languages(editions)
+        logger.debug(f"All available languages: {[lang['code'] for lang in all_languages]}")
+
         # Filter editions based on criteria
         filtered_editions = []
         for edition in editions:
@@ -251,9 +255,6 @@ def get_card_by_lang_and_set():
                 filtered_editions.append(edition)
 
         logger.info(f"Filtered to {len(filtered_editions)} matching editions")
-
-        # Get unique languages from ALL editions (not just filtered ones)
-        all_languages = scryfall_service.get_unique_languages(editions)
         
         # Get unique sets from filtered results
         sets = list({ed['set']: ed['set_name'] for ed in filtered_editions}.items())

@@ -119,6 +119,10 @@ class MTGProxyForge {
         const hasError = card.error;
         const errorClass = hasError ? 'card-error' : '';
 
+        // Ensure languages array exists and is valid
+        const languages = card.languages || [];
+        const currentLang = card.lang || 'en';
+
         col.innerHTML = `
             <div class="card card-preview section-transition ${errorClass}" data-card-index="${index}">
                 <div class="position-relative">
@@ -143,12 +147,12 @@ class MTGProxyForge {
                     <p class="card-text small text-muted mb-2">
                         ${card.set_name || card.set_code || 'Conjunto desconhecido'}
                     </p>
-                    ${!hasError && card.languages && card.languages.length > 0 ? `
+                    ${!hasError && languages.length > 0 ? `
                         <div class="mb-2">
                             <label class="form-label small text-muted">Idioma:</label>
                             <select class="form-select form-select-sm language-selector" onchange="app.changeLanguage(${index}, this.value)">
-                                ${card.languages.map(language => `
-                                    <option value="${language.code}" ${language.code === card.lang ? 'selected' : ''}>
+                                ${languages.map(language => `
+                                    <option value="${language.code}" ${language.code === currentLang ? 'selected' : ''}>
                                         ${language.name}
                                     </option>
                                 `).join('')}
@@ -230,7 +234,7 @@ class MTGProxyForge {
             console.log('Response data:', data);
 
             if (response.ok && data.card) {
-                // Update card data in the array
+                // Update card data in the array, preserving original languages from card initialization
                 const updatedCard = {
                     ...card,
                     name: data.card.name || data.card.printed_name || card.name,
@@ -241,7 +245,7 @@ class MTGProxyForge {
                     lang: data.card.lang,
                     lang_name: data.card.lang_name,
                     editions: card.editions, // Keep original editions list
-                    languages: card.languages // Keep original languages list
+                    languages: data.available_languages || card.languages // Update with new languages if provided
                 };
                 
                 this.processedCards[cardIndex] = updatedCard;
@@ -280,7 +284,11 @@ class MTGProxyForge {
 
                     // Update dropdowns to reflect current selection and available options
                     this.updateDropdowns(cardIndex, data.card);
-                    this.updateLanguageOptions(cardIndex, data.available_languages);
+                    
+                    // Update language options with all available languages
+                    if (data.available_languages && data.available_languages.length > 0) {
+                        this.updateLanguageOptions(cardIndex, data.available_languages);
+                    }
 
                     console.log(`Card updated: ${cardDisplayName} (${data.card.lang || 'en'}) - ${data.card.set_name}`);
                 }
